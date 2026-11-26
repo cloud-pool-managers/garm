@@ -138,6 +138,24 @@ func TestConsolidateStateReturnsUnexpectedStoreError(t *testing.T) {
 	require.Error(t, m.consolidateState())
 }
 
+// The store replaces the stored fault with the one a write carries. Moving an
+// errored instance toward deletion must therefore carry its fault along, or
+// the provider's diagnosis is wiped before it can be read.
+func TestConsolidateStateKeepsFaultWhenErroredInstanceIsQueuedForDelete(t *testing.T) {
+	store := &storeStub{}
+	m := newTestManager(store, params.Instance{
+		Name:          "runner-1",
+		Status:        commonParams.InstanceError,
+		ProviderFault: []byte("No valid host was found."),
+	})
+
+	require.NoError(t, m.consolidateState())
+
+	require.Len(t, store.writes, 1)
+	require.Equal(t, commonParams.InstancePendingDelete, store.writes[0].status)
+	require.Equal(t, []byte("No valid host was found."), store.writes[0].fault)
+}
+
 // A running instance is finished. Consolidation must leave it alone.
 func TestConsolidateStateLeavesRunningAlone(t *testing.T) {
 	store := &storeStub{}

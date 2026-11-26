@@ -473,7 +473,7 @@ func (i *instanceManager) consolidateState() error {
 			}
 		}
 
-		if err := i.setInstanceStatus(instance.Name, commonParams.InstanceDeleting, nil, true); err != nil {
+		if err := i.setInstanceStatus(instance.Name, commonParams.InstanceDeleting, instance.ProviderFault, true); err != nil {
 			if errors.Is(err, runnerErrors.ErrNotFound) {
 				return nil
 			}
@@ -512,7 +512,11 @@ func (i *instanceManager) consolidateState() error {
 	case commonParams.InstanceError:
 		// Instance is in error state. We wait for next status or potentially retry
 		// spawning the instance with a backoff timer.
-		if err := i.setInstanceStatus(instance.Name, commonParams.InstancePendingDelete, nil, true); err != nil {
+		//
+		// The store replaces the stored fault with whatever a write carries,
+		// so pass the recorded fault along. A nil here would erase the reason
+		// the instance errored before anyone could read it.
+		if err := i.setInstanceStatus(instance.Name, commonParams.InstancePendingDelete, instance.ProviderFault, true); err != nil {
 			return fmt.Errorf("setting instance status to error: %w", err)
 		}
 	case commonParams.InstanceDeleted:
