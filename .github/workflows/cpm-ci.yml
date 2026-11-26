@@ -1,0 +1,60 @@
+name: cpm-ci
+
+# CI of the cloud-pool-managers fork. Upstream's go-tests.yml needs its own
+# `ubuntu-noble-garm` runners and hides the build tags inside `make go-test`;
+# here every configuration is spelled out so that it can be audited
+# (buildscan reads the tags from this file).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (linux/amd64, tags testing)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libbtrfs-dev build-essential
+      - name: Vet every build-tag configuration
+        run: |
+          go build -mod=vendor ./...
+          go vet -mod=vendor -tags testing,integration ./...
+      - name: Unit tests
+        run: go test -race -mod=vendor -tags testing -timeout=60m -parallel=4 -count=1 ./...
+
+  cross-build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }} (garm-cli)
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: windows, goarch: amd64}
+          - {goos: freebsd, goarch: amd64}
+          - {goos: darwin, goarch: arm64}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build garm-cli
+        env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -mod=vendor -o /dev/null ./cmd/garm-cli
