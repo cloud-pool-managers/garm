@@ -1,0 +1,44 @@
+name: cpm-release
+
+# Builds the release assets of a fork tag `v<upstream>-cpm.<N>` and publishes them
+# with a SHA256SUMS file. The tag is created by `ghrelease` on a merged, CI-green commit.
+
+on:
+  push:
+    tags: ['v*-cpm.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libbtrfs-dev build-essential
+      - name: Build
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          for bin in garm garm-cli; do
+            go build -mod=vendor -trimpath \
+              -ldflags "-s -w -X github.com/cloudbase/garm/util/appdefaults.Version=${VERSION}" \
+              -tags osusergo,netgo,sqlite_omit_load_extension \
+              -o "dist/${bin}" "./cmd/${bin}"
+          done
+          tar -C dist -czf "dist/garm-${VERSION}-linux-amd64.tar.gz" garm garm-cli
+          rm dist/garm dist/garm-cli
+          (cd dist && sha256sum ./*.tar.gz > SHA256SUMS)
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "${TAG}" dist/* --title "${TAG}" \
+            --notes "cloud-pool-managers fork build of GARM (see README for the tag scheme). Verify with SHA256SUMS."

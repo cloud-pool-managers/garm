@@ -6,6 +6,16 @@
 
 # GitHub Actions Runner Manager (GARM)
 
+> **cloud-pool-managers fork.** This repository carries the patches we run on our own CI
+> before they are offered upstream (`cloudbase/garm`, kept as the `origin`/upstream remote).
+> Differences from upstream: `.github/workflows` is replaced by `cpm-ci.yml` (GitHub-hosted
+> runners, explicit build tags) and `cpm-release.yml`; patches are listed in the release notes.
+>
+> **Tags.** Fork releases are named `v<upstream version>-cpm.<N>` (for example `v0.2.1-cpm.1`,
+> or `v0.2.2-cpm.1` on a newer upstream base). The `-cpm.N` suffix is a SemVer pre-release
+> identifier that upstream never uses, so a fork tag cannot collide with an upstream tag.
+> Each release attaches `SHA256SUMS`.
+
 [![Go Tests](https://github.com/cloudbase/garm/actions/workflows/go-tests.yml/badge.svg)](https://github.com/cloudbase/garm/actions/workflows/go-tests.yml)
 [![slack](https://img.shields.io/badge/slack-garm-brightgreen.svg?logo=slack)](https://inviter.co/garm)
 [![awesome-runners](https://img.shields.io/badge/listed%20on-awesome--runners-blue.svg)](https://github.com/jonico/awesome-runners)
