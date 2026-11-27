@@ -1,11 +1,11 @@
 name: cpm-release
 
-# Builds the release assets of a fork tag `v<upstream>-cpm.<N>` and publishes them
+# Builds the release assets of a fork tag `vMAJOR.MINOR.PATCH` and publishes them
 # with a SHA256SUMS file. The tag is created by `ghrelease` on a merged, CI-green commit.
 
 on:
   push:
-    tags: ['v*-cpm.*']
+    tags: ['v*']
 
 permissions:
   contents: write

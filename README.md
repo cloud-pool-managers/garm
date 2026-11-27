@@ -11,9 +11,9 @@
 > Differences from upstream: `.github/workflows` is replaced by `cpm-ci.yml` (GitHub-hosted
 > runners, explicit build tags) and `cpm-release.yml`; patches are listed in the release notes.
 >
-> **Tags.** Fork releases are named `v<upstream version>-cpm.<N>` (for example `v0.2.1-cpm.1`,
-> or `v0.2.2-cpm.1` on a newer upstream base). The `-cpm.N` suffix is a SemVer pre-release
-> identifier that upstream never uses, so a fork tag cannot collide with an upstream tag.
+> **Tags.** Fork releases use plain SemVer `vMAJOR.MINOR.PATCH`, starting at `v0.100.0`, a
+> range upstream (currently `v0.2.x`) is not expected to reach, so a fork tag cannot collide
+> with an upstream tag. The release notes name the upstream commit each release is based on.
 > Each release attaches `SHA256SUMS`.
 
 [![Go Tests](https://github.com/cloudbase/garm/actions/workflows/go-tests.yml/badge.svg)](https://github.com/cloudbase/garm/actions/workflows/go-tests.yml)
