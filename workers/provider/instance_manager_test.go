@@ -27,6 +27,7 @@ import (
 	commonParams "github.com/cloudbase/garm-provider-common/params"
 	"github.com/cloudbase/garm/auth"
 	"github.com/cloudbase/garm/params"
+	"github.com/cloudbase/garm/runner/common"
 )
 
 type statusWrite struct {
@@ -154,6 +155,63 @@ func TestConsolidateStateKeepsFaultWhenErroredInstanceIsQueuedForDelete(t *testi
 	require.Len(t, store.writes, 1)
 	require.Equal(t, commonParams.InstancePendingDelete, store.writes[0].status)
 	require.Equal(t, []byte("No valid host was found."), store.writes[0].fault)
+}
+
+// A failed write toward deletion must surface so the loop retries it, rather
+// than being dropped as if the instance had been queued.
+func TestConsolidateStateReturnsStoreErrorWhenQueueingErroredInstance(t *testing.T) {
+	store := &storeStub{writeErr: runnerErrors.ErrUnauthorized}
+	m := newTestManager(store, params.Instance{
+		Name:   "runner-1",
+		Status: commonParams.InstanceError,
+	})
+
+	err := m.consolidateState()
+	require.ErrorIs(t, err, runnerErrors.ErrUnauthorized)
+	require.Len(t, store.writes, 1)
+}
+
+// The delete lane stops at the first failed deleting write: it reports the
+// failure and never reaches the provider, and a record that is already gone
+// ends the pass quietly.
+func TestConsolidateStateDeleteLaneStopsOnDeletingWriteError(t *testing.T) {
+	store := &storeStub{writeErr: runnerErrors.ErrUnauthorized}
+	m := newTestManager(store, params.Instance{
+		Name:   "runner-1",
+		Status: commonParams.InstancePendingForceDelete,
+	})
+
+	prov := &providerStub{}
+	m.provider = prov
+
+	err := m.consolidateState()
+	require.ErrorIs(t, err, runnerErrors.ErrUnauthorized)
+	require.Len(t, store.writes, 1)
+	require.Equal(t, commonParams.InstanceDeleting, store.writes[0].status)
+	require.False(t, prov.deleted, "the provider must not be called after a failed write")
+
+	store = &storeStub{writeErr: runnerErrors.ErrNotFound}
+	m = newTestManager(store, params.Instance{
+		Name:   "runner-1",
+		Status: commonParams.InstancePendingForceDelete,
+	})
+	prov = &providerStub{}
+	m.provider = prov
+	require.NoError(t, m.consolidateState())
+	require.Len(t, store.writes, 1)
+	require.False(t, prov.deleted)
+}
+
+// providerStub records whether the provider was asked to delete. Any other
+// call panics on the nil embedded interface, which a test would surface.
+type providerStub struct {
+	common.Provider
+	deleted bool
+}
+
+func (p *providerStub) DeleteInstance(_ context.Context, _ string, _ common.DeleteInstanceParams) error {
+	p.deleted = true
+	return nil
 }
 
 // A running instance is finished. Consolidation must leave it alone.
